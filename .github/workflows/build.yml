@@ -30,11 +30,15 @@ jobs:
 
       - name: Build Windows Executables
         if: runner.os == 'Windows'
-        run: npm run pack
+        run: npm run pack:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build macOS DMG & App
         if: runner.os == 'macOS'
         run: npm run pack:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4

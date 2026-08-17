@@ -1,0 +1,44 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node dependencies
+node_modules
+dist
+dist-ssr
+*.local
+
+# Release artifacts (built by packager/builder)
+release
+release_mac
+build_output
+*.exe
+*.zip
+*.dmg
+*.blockmap
+
+# Local user database and sessions
+data/
+data/user_sessions
+data/profiles.json
+data/accounts.json
+data/downloads.json
+data/settings.json
+data/last_session.json
+data/app_config.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

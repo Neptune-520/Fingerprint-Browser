@@ -713,6 +713,42 @@ export class ViewManager {
           return true;
         }
 
+        function isSearchInput(i) {
+          if (!i) return true;
+          const t = (i.type || '').toLowerCase();
+          if (t === 'search') return true;
+          const ph = (i.placeholder || '').toLowerCase();
+          const name = (i.name || '').toLowerCase();
+          const id = (i.id || '').toLowerCase();
+          const cls = (i.className || '').toLowerCase();
+          const role = (i.getAttribute('role') || '').toLowerCase();
+
+          if (role === 'searchbox' || name.includes('search') || id.includes('search') || cls.includes('search') ||
+              name.includes('filter') || id.includes('filter') || cls.includes('filter') ||
+              name.includes('query') || id.includes('query')) {
+            return true;
+          }
+
+          if (ph.includes('搜索') || ph.includes('search') || ph.includes('filter') ||
+              ph.includes('单号') || ph.includes('title') || ph.includes('查找') ||
+              ph.includes('关键字') || ph.includes('keyword') || ph.includes('查询')) {
+            return true;
+          }
+
+          if (ph.includes('/') || ph.includes('|')) {
+            return true;
+          }
+
+          return false;
+        }
+
+        function isUsernameCandidate(i) {
+          if (!i || i.readOnly || i.disabled || (i.type || '').toLowerCase() === 'hidden') return false;
+          if (isSearchInput(i)) return false;
+          const t = (i.type || '').toLowerCase();
+          return (t === 'text' || t === 'email' || t === 'user' || t === '');
+        }
+
         function fillDoc(doc) {
           if (!doc) return;
           try {
@@ -736,26 +772,48 @@ export class ViewManager {
             let userInput = null;
             if (pwdInput) {
               const pwdIdx = inputs.indexOf(pwdInput);
+              // 优先1：在密码框之前的元素中，寻找有明确账号特征（placeholder/name/id包含账号/用户名/user/account等）且非搜索框的输入框
               for (let i = pwdIdx - 1; i >= 0; i--) {
-                const t = (inputs[i].type || '').toLowerCase();
-                if (t === 'text' || t === 'email' || t === 'user' || t === '') {
-                  userInput = inputs[i];
-                  break;
+                const inp = inputs[i];
+                if (isUsernameCandidate(inp)) {
+                  const ph = (inp.placeholder || '').toLowerCase();
+                  const name = (inp.name || '').toLowerCase();
+                  const id = (inp.id || '').toLowerCase();
+                  const auto = (inp.autocomplete || '').toLowerCase();
+                  if (auto === 'username' || auto === 'email' ||
+                      ph.includes('账号') || ph.includes('用户名') || ph.includes('邮箱') || ph.includes('手机') ||
+                      name.includes('user') || name.includes('account') || name.includes('login') ||
+                      id.includes('user') || id.includes('account') || id.includes('login')) {
+                    userInput = inp;
+                    break;
+                  }
+                }
+              }
+
+              // 优先2：如果在密码框前没找到明确特征的，退而求其次选择距离密码框最近的非搜索类 text 输入框
+              if (!userInput) {
+                for (let i = pwdIdx - 1; i >= 0; i--) {
+                  if (isUsernameCandidate(inputs[i])) {
+                    userInput = inputs[i];
+                    break;
+                  }
                 }
               }
             }
 
             if (!userInput) {
+              // 优先3：独立全局查找有明确账号特征且非搜索框的输入框
               userInput = inputs.find(i => {
-                const t = (i.type || '').toLowerCase();
+                if (!isUsernameCandidate(i)) return false;
+                const ph = (i.placeholder || '').toLowerCase();
                 const name = (i.name || '').toLowerCase();
                 const id = (i.id || '').toLowerCase();
-                const ph = (i.placeholder || '').toLowerCase();
-                return (t === 'text' || t === 'email' || t === '') &&
-                  (name.includes('user') || name.includes('account') || name.includes('login') || name.includes('mail') ||
-                   id.includes('user') || id.includes('account') || id.includes('login') || id.includes('mail') ||
-                   ph.includes('账号') || ph.includes('用户') || ph.includes('邮箱') || ph.includes('手机'));
-              }) || inputs.find(i => (i.type || '').toLowerCase() === 'text');
+                const auto = (i.autocomplete || '').toLowerCase();
+                return auto === 'username' || auto === 'email' ||
+                  ph.includes('账号') || ph.includes('用户名') ||
+                  name.includes('user') || name.includes('account') || name.includes('login') ||
+                  id.includes('user') || id.includes('account') || id.includes('login');
+              });
             }
 
             if (userInput && u) {

@@ -24,7 +24,7 @@ export class ProfileManager {
           if (cfg && cfg.storageDir && fs.existsSync(cfg.storageDir)) {
             return path.resolve(cfg.storageDir)
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       return null
     }
@@ -403,11 +403,21 @@ export class ProfileManager {
       return this.sessionsMap.get(partitionKey)
     }
     const sess = session.fromPartition(partitionKey)
+
+    // Set standard Chrome User-Agent to prevent CDN stream truncation
+    const standardUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+    sess.setUserAgent(standardUA)
+
+    // Clear session HTTP disk cache on session creation to remove any stale or truncated JS files
+    sess.clearCache().catch((err) => {
+      console.error(`[DEBUG ProfileManager ERROR] Failed to clear session cache for ${partitionKey}:`, err)
+    })
+
     const downloadPath = this.settings.downloadDir || DEFAULT_DOWNLOADS_DIR
     sess.on('will-download', (event, item) => {
       const baseDir = this.settings.downloadDir || DEFAULT_DOWNLOADS_DIR
       if (!fs.existsSync(baseDir)) {
-        try { fs.mkdirSync(baseDir, { recursive: true }) } catch (e) {}
+        try { fs.mkdirSync(baseDir, { recursive: true }) } catch (e) { }
       }
 
       const rawFileName = item.getFilename()

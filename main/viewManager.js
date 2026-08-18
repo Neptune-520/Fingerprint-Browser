@@ -96,7 +96,7 @@ export class ViewManager {
   createTab(profileData, isExternal = false, insertAfterTabId = null) {
     console.log('[DEBUG ViewManager] createTab requested for profile:', profileData.name, 'ID:', profileData.id, 'URL:', profileData.url)
     const tabId = profileData.id || 'tab_' + Math.random().toString(36).substring(2, 9)
-    
+
     // Check if already open
     if (this.openTabs.has(tabId)) {
       console.log(`[DEBUG ViewManager] Tab "${tabId}" already open. Selecting it.`)
@@ -148,6 +148,9 @@ export class ViewManager {
     })
 
     // WebContents Lifecycle Events
+    view.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      console.log(`[WebContents Console "${tabId}"][L${line} in ${sourceId || 'page'}] ${message}`)
+    })
     view.webContents.on('did-start-loading', () => {
       console.log(`[DEBUG WebContentsView "${tabId}"] did-start-loading -> ${view.webContents.getURL()}`)
       this.sendToRenderer('tab-loading-status', JSON.stringify({ tabId, isLoading: true }))
@@ -327,6 +330,12 @@ export class ViewManager {
           label: '刷新',
           click: () => {
             view.webContents.reload()
+          }
+        },
+        {
+          label: '强制刷新 (忽略缓存)',
+          click: () => {
+            view.webContents.reloadIgnoringCache()
           }
         },
         { type: 'separator' },

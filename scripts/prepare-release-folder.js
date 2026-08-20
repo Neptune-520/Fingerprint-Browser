@@ -28,17 +28,14 @@ if (!fs.existsSync(releaseDir)) {
   process.exit(1);
 }
 
-// 2. 创建以 package.json 版本号命名的文件夹 (如 release/2.0.1)
-if (!fs.existsSync(versionFolder)) {
-  fs.mkdirSync(versionFolder, { recursive: true });
-  console.log(`📁 成功创建版本文件夹: release/${version}/\n`);
-} else {
-  console.log(`📁 版本文件夹已存在: release/${version}/\n`);
+// 清空旧的版本归档文件夹（如果存在），确保干净
+if (fs.existsSync(versionFolder)) {
+  fs.rmSync(versionFolder, { recursive: true, force: true });
 }
+fs.mkdirSync(versionFolder, { recursive: true });
+console.log(`📁 已新建/重置版本文件夹: release/${version}/\n`);
 
-// 3. 定义要归档到 Release 文件夹的文件扩展名及规则
-const validExtensions = ['.exe', '.dmg', '.zip', '.yml', '.blockmap'];
-
+// 3. 收集当前版本的发布文件
 const items = fs.readdirSync(releaseDir);
 let copyCount = 0;
 
@@ -46,21 +43,23 @@ for (const item of items) {
   const itemPath = path.join(releaseDir, item);
   const stat = fs.statSync(itemPath);
 
-  // 跳过子文件夹 (包括版本文件夹本身)
+  // 跳过子文件夹
   if (stat.isDirectory()) continue;
 
-  const ext = path.extname(item).toLowerCase();
-  if (validExtensions.includes(ext) || item.endsWith('.yml')) {
+  // 匹配规则：属于当前版本号的文件，或者全局更新清单 latest.yml
+  const isCurrentVersionFile = item.includes(version) || item.startsWith('latest') || item === 'builder-debug.yml';
+
+  if (isCurrentVersionFile) {
     const destPath = path.join(versionFolder, item);
     fs.copyFileSync(itemPath, destPath);
-    console.log(`  ├─ 复制文件: ${item} -> release/${version}/${item}`);
+    console.log(`  ├─ 复制发布文件: ${item} -> release/${version}/${item}`);
     copyCount++;
   }
 }
 
 console.log('');
 if (copyCount === 0) {
-  console.warn(`⚠️ 警告: release/ 根目录下未发现可整理的发布产物 (.exe / .dmg / .zip / .yml)。`);
+  console.warn(`⚠️ 警告: release/ 根目录下未发现 v${version} 版本的发布文件。`);
   console.warn(`请确保已先执行本地打包脚本！`);
 } else {
   console.log(`✅ 整理完成！共计 ${copyCount} 个 GitHub Release 发布文件已归档至目录: release/${version}/`);

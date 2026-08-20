@@ -7,9 +7,19 @@ import { session, dialog, app } from 'electron'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Project local data folder: f:\browser-new\Fingerprint_Browser\data
+// Project local data folder:
+// In development: f:\browser-new\Fingerprint_Browser\data
+// In production (packaged): directory next to FingerprintBrowser.exe (e.g., D:\win-unpacked\data)
 const APP_ROOT_DIR = path.resolve(__dirname, '..')
-const LOCAL_DATA_DIR = path.join(APP_ROOT_DIR, 'data')
+const getLocalDataDir = () => {
+  try {
+    if (app && app.isPackaged) {
+      return path.join(path.dirname(app.getPath('exe')), 'data')
+    }
+  } catch (e) { }
+  return path.join(APP_ROOT_DIR, 'data')
+}
+const LOCAL_DATA_DIR = getLocalDataDir()
 const DEFAULT_DOWNLOADS_DIR = path.join(os.homedir(), 'Downloads')
 
 /**
@@ -17,6 +27,7 @@ const DEFAULT_DOWNLOADS_DIR = path.join(os.homedir(), 'Downloads')
  * and then delete the original conflicting item.
  */
 function backupAndDeleteInvalidPath(targetPath) {
+  if (!targetPath || targetPath.includes('.asar')) return
   try {
     let desktopDir
     try {
@@ -91,6 +102,10 @@ function safeEnsureDir(dirPath) {
     let current = target
     const root = path.parse(current).root
     while (current && current !== root) {
+      // Do not process .asar virtual file paths
+      if (current.includes('.asar')) {
+        break
+      }
       if (fs.existsSync(current)) {
         try {
           const stat = fs.statSync(current)

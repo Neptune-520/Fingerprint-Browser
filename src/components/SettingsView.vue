@@ -221,7 +221,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['save', 'toast', 'check-updates'])
-const appVersion = ref('2.0.3')
+const appVersion = ref('2.0.4')
 const customProxyInput = ref('')
 
 onMounted(async () => {

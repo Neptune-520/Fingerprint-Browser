@@ -1,6 +1,6 @@
 {
   "name": "fingerprint-browser",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Multi-Profile Isolated Fingerprint Browser System built with Electron 3x, Vue 3, and Tailwind CSS",
   "author": "Fingerprint Browser Team",
   "main": "main/main.js",

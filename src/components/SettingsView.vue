@@ -157,6 +157,36 @@
           </div>
         </div>
 
+        <!-- GitHub Proxy Settings -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start border-t border-slate-100 pt-4">
+          <div>
+            <label class="font-medium text-slate-800 block">GitHub 更新加速代理</label>
+            <span class="text-slate-400 text-[11px] block mt-0.5">国内访问 GitHub 受限或 404 时，可切换内置代理服务</span>
+          </div>
+          <div class="md:col-span-2 space-y-2">
+            <CustomSelect 
+              v-model="form.githubProxy" 
+              :options="proxyOptions"
+              placeholder="选择 GitHub 加速代理..."
+            />
+            <input 
+              v-if="form.githubProxy === 'custom'"
+              v-model="customProxyInput"
+              type="text"
+              placeholder="请输入代理前缀，例如：https://ghp.ci/"
+              class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-xs focus:outline-none focus:border-blue-500 focus:bg-white"
+            />
+            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600 space-y-1">
+              <div class="flex items-center space-x-1 font-medium text-slate-700">
+                <span>🔗 最终更新与资源下载地址：</span>
+              </div>
+              <div class="font-mono text-blue-600 break-all bg-white p-1.5 rounded border border-slate-200">
+                {{ getFinalPreviewUrl() }}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Software Version & Online Update -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-t border-slate-100 pt-4">
           <div>
@@ -191,7 +221,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['save', 'toast', 'check-updates'])
-const appVersion = ref('2.0.1')
+const appVersion = ref('2.0.3')
+const customProxyInput = ref('')
 
 onMounted(async () => {
   if (window.electronAPI && window.electronAPI.getAppVersion) {
@@ -209,6 +240,17 @@ const fontOptions = [
   { label: 'Inter', value: 'Inter, sans-serif' }
 ]
 
+const proxyOptions = [
+  { label: '直连 GitHub (官方默认地址)', value: '' },
+  { label: 'https://ghp.ci/ (推荐镜像)', value: 'https://ghp.ci/' },
+  { label: 'https://gh-proxy.com/', value: 'https://gh-proxy.com/' },
+  { label: 'https://ghproxy.net/', value: 'https://ghproxy.net/' },
+  { label: 'https://ghproxy.homeboyc.cn/', value: 'https://ghproxy.homeboyc.cn/' },
+  { label: 'https://github.ur1.fun/', value: 'https://github.ur1.fun/' },
+  { label: 'https://github.moeyy.xyz/', value: 'https://github.moeyy.xyz/' },
+  { label: '自定义代理前缀...', value: 'custom' }
+]
+
 const form = ref({
   fontFamily: "'Microsoft YaHei', sans-serif",
   fontSize: 16,
@@ -217,14 +259,29 @@ const form = ref({
   storageDir: '',
   downloadDir: '',
   newTabDefaultUrl: 'https://www.baidu.com',
-  autoRestoreTabs: true
+  autoRestoreTabs: true,
+  githubProxy: 'https://ghp.ci/'
 })
 
 watch(() => props.settings, (newVal) => {
   if (newVal) {
     form.value = { ...newVal }
+    if (newVal.githubProxy && !proxyOptions.some(o => o.value === newVal.githubProxy)) {
+      customProxyInput.value = newVal.githubProxy
+      form.value.githubProxy = 'custom'
+    }
   }
 }, { immediate: true })
+
+const getFinalPreviewUrl = () => {
+  let prefix = form.value.githubProxy || ''
+  if (prefix === 'custom') {
+    prefix = customProxyInput.value || ''
+  }
+  const fixedRepo = 'https://github.com/Neptune-520/Fingerprint-Browser/releases/latest/download/latest.yml'
+  if (!prefix) return fixedRepo
+  return (prefix.endsWith('/') ? prefix : prefix + '/') + fixedRepo
+}
 
 const browseDirectory = async (field) => {
   if (window.electronAPI && window.electronAPI.selectDirectory) {
@@ -236,6 +293,12 @@ const browseDirectory = async (field) => {
 }
 
 const handleSave = () => {
-  emit('save', { ...form.value })
+  const saveForm = { ...form.value }
+  if (saveForm.githubProxy === 'custom') {
+    let p = customProxyInput.value.trim()
+    if (p && !p.endsWith('/')) p += '/'
+    saveForm.githubProxy = p
+  }
+  emit('save', saveForm)
 }
 </script>

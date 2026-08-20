@@ -86,9 +86,36 @@ export class UpdateManager {
     })
   }
 
+  applyFeedUrl() {
+    const rawProxy = this.profileManager && this.profileManager.settings ? this.profileManager.settings.githubProxy : ''
+    const proxy = (rawProxy || '').trim()
+    const fixedRepoDownloadUrl = 'https://github.com/Neptune-520/Fingerprint-Browser/releases/latest/download'
+
+    if (proxy && proxy !== 'direct') {
+      let formattedProxy = proxy
+      if (!formattedProxy.endsWith('/')) {
+        formattedProxy += '/'
+      }
+      const fullUrl = `${formattedProxy}${fixedRepoDownloadUrl}`
+      console.log('[DEBUG UpdateManager] Applying GitHub proxy feed URL:', fullUrl)
+      autoUpdater.setFeedURL({
+        provider: 'generic',
+        url: fullUrl
+      })
+    } else {
+      console.log('[DEBUG UpdateManager] Using default direct GitHub feed URL')
+      autoUpdater.setFeedURL({
+        provider: 'github',
+        owner: 'Neptune-520',
+        repo: 'Fingerprint-Browser'
+      })
+    }
+  }
+
   async checkForUpdates() {
     console.log('[DEBUG UpdateManager] Manual check for updates triggered.')
     try {
+      this.applyFeedUrl()
       if (!app.isPackaged) {
         console.log('[DEBUG UpdateManager] App is in development mode. Simulating update check.')
         this.sendToRenderer('update-status', { status: 'checking' })

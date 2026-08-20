@@ -311,7 +311,8 @@ export class ProfileManager {
       storageDir: this.storageDir,
       newTabDefaultUrl: 'https://www.baidu.com',
       downloadDir: DEFAULT_DOWNLOADS_DIR,
-      autoRestoreTabs: true
+      autoRestoreTabs: true,
+      githubProxy: 'https://ghp.ci/'
     }
     const s = this.readJsonFile(this.settingsFile, defaults)
     if (s && s.storageDir && fs.existsSync(s.storageDir) && path.resolve(s.storageDir) !== path.resolve(this.storageDir)) {

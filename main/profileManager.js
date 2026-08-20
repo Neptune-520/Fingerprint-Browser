@@ -631,4 +631,51 @@ export class ProfileManager {
     }
     return false
   }
+
+  backupUserDataBeforeUpdate() {
+    try {
+      const backupsRootDir = path.join(this.storageDir, 'backups')
+      safeEnsureDir(backupsRootDir)
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      const targetBackupDir = path.join(backupsRootDir, `update_backup_${timestamp}`)
+      safeEnsureDir(targetBackupDir)
+
+      const filesToBackup = [
+        this.profilesFile,
+        this.settingsFile,
+        this.accountsFile,
+        this.downloadsFile,
+        this.lastSessionFile
+      ]
+
+      for (const file of filesToBackup) {
+        if (file && fs.existsSync(file)) {
+          const dest = path.join(targetBackupDir, path.basename(file))
+          fs.copyFileSync(file, dest)
+        }
+      }
+
+      console.log(`[DEBUG ProfileManager] User data successfully backed up before update to: ${targetBackupDir}`)
+
+      // Cleanup old update backups, keep latest 5
+      const entries = fs.readdirSync(backupsRootDir)
+        .filter(n => n.startsWith('update_backup_'))
+        .map(n => path.join(backupsRootDir, n))
+        .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)
+
+      if (entries.length > 5) {
+        for (let i = 5; i < entries.length; i++) {
+          try {
+            fs.rmSync(entries[i], { recursive: true, force: true })
+          } catch (e) {}
+        }
+      }
+
+      return true
+    } catch (err) {
+      console.error('[DEBUG ProfileManager ERROR] Failed backing up user data before update:', err)
+      return false
+    }
+  }
 }

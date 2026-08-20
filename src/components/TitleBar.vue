@@ -1,8 +1,79 @@
 <template>
-  <div class="h-8 bg-white border-b border-slate-200 px-3 flex items-center justify-between text-xs select-none drag-region">
+  <div class="relative h-8 bg-white border-b border-slate-200 px-3 flex items-center justify-between text-xs select-none drag-region">
     <!-- Left: App Title & Logo -->
     <div class="flex items-center space-x-2 text-slate-800 font-semibold no-drag">
       <span class="text-[12px] font-bold tracking-tight text-slate-900">指纹浏览器</span>
+    </div>
+
+    <!-- Center: Menu Navigation Icons in TitleBar Row (Middle) -->
+    <div class="absolute left-1/2 -translate-x-1/2 flex items-center space-x-1.5 no-drag" style="-webkit-app-region: no-drag;">
+      <button 
+        @click="$emit('switch-view', 'home')"
+        :class="[
+          'px-2 py-0.5 rounded transition text-xs font-medium flex items-center space-x-1 border',
+          currentView === 'home' 
+            ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+            : 'bg-slate-50 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-200'
+        ]"
+        title="工作台"
+      >
+        <span>🖥️</span>
+        <span class="text-[11px]">工作台</span>
+        <span :class="['text-[10px] px-1 py-0.1 rounded font-semibold', currentView === 'home' ? 'bg-slate-800 text-slate-200' : 'bg-slate-200 text-slate-600']">{{ profileCount || 0 }}</span>
+      </button>
+
+      <button 
+        @click="$emit('switch-view', 'accounts')"
+        :class="[
+          'px-2 py-0.5 rounded transition text-xs font-medium flex items-center space-x-1 border',
+          currentView === 'accounts' 
+            ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+            : 'bg-slate-50 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-200'
+        ]"
+        title="账号凭据库"
+      >
+        <span>🔑</span>
+        <span class="text-[11px]">账号凭据库</span>
+      </button>
+
+      <button 
+        @click="$emit('switch-view', 'settings')"
+        :class="[
+          'px-2 py-0.5 rounded transition text-xs font-medium flex items-center space-x-1 border',
+          currentView === 'settings' 
+            ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+            : 'bg-slate-50 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-200'
+        ]"
+        title="系统设置"
+      >
+        <span>⚙️</span>
+        <span class="text-[11px]">系统设置</span>
+      </button>
+
+      <button 
+        v-if="tabsCount > 0"
+        @click="$emit('switch-view', 'active')"
+        :class="[
+          'px-2 py-0.5 rounded transition text-xs font-medium flex items-center space-x-1 border',
+          currentView === 'active' 
+            ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+            : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200'
+        ]"
+        title="网页视图"
+      >
+        <span>🌐</span>
+        <span class="text-[11px] font-semibold">网页视图</span>
+        <span class="text-[10px] bg-blue-100 text-blue-700 px-1 py-0.1 rounded font-bold">{{ tabsCount }}</span>
+      </button>
+
+      <!-- Toggle expand / collapse left sidebar -->
+      <button 
+        @click="$emit('toggle-collapse')"
+        class="px-1.5 py-0.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition text-xs font-medium border border-slate-200 flex items-center justify-center"
+        :title="isCollapsed ? '展开左侧菜单' : '收起左侧菜单'"
+      >
+        <span>{{ isCollapsed ? '❯' : '❮' }}</span>
+      </button>
     </div>
 
     <!-- Right: In-App Custom Window Controls -->
@@ -40,6 +111,16 @@
 <script setup>
 import { ref } from 'vue'
 import AppIcon from './AppIcon.vue'
+
+defineProps({
+  activeTabTitle: String,
+  currentView: String,
+  profileCount: Number,
+  tabsCount: Number,
+  isCollapsed: Boolean
+})
+
+defineEmits(['switch-view', 'toggle-collapse'])
 
 const isMaximized = ref(false)
 

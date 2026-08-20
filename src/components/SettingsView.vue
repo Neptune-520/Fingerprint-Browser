@@ -156,20 +156,49 @@
             </label>
           </div>
         </div>
+
+        <!-- Software Version & Online Update -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-t border-slate-100 pt-4">
+          <div>
+            <label class="font-medium text-slate-800 block">软件版本与更新</label>
+            <span class="text-slate-400 text-[11px] block mt-0.5">支持基于 GitHub 的在线自动检查与在线升级</span>
+          </div>
+          <div class="md:col-span-2 flex items-center space-x-3">
+            <span class="bg-slate-100 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold">
+              v{{ appVersion }}
+            </span>
+            <button 
+              type="button" 
+              @click="$emit('check-updates')" 
+              class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-lg font-medium transition text-xs flex items-center space-x-1.5 shadow-sm"
+            >
+              <span>🚀</span>
+              <span>检查在线更新</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import CustomSelect from './CustomSelect.vue'
 
 const props = defineProps({
   settings: Object
 })
 
-const emit = defineEmits(['save', 'toast'])
+const emit = defineEmits(['save', 'toast', 'check-updates'])
+const appVersion = ref('2.0.1')
+
+onMounted(async () => {
+  if (window.electronAPI && window.electronAPI.getAppVersion) {
+    const v = await window.electronAPI.getAppVersion()
+    if (v) appVersion.value = v
+  }
+})
 
 const fontOptions = [
   { label: '微软雅黑 (Microsoft YaHei)', value: "'Microsoft YaHei', sans-serif" },

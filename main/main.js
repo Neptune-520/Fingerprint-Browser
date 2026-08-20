@@ -4,6 +4,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { ProfileManager } from './profileManager.js'
 import { ViewManager } from './viewManager.js'
+import { UpdateManager } from './updateManager.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -11,6 +12,7 @@ const __dirname = path.dirname(__filename)
 let mainWindow = null
 let profileManager = null
 let viewManager = null
+let updateManager = null
 
 function safeParse(val, fallback = {}) {
   if (typeof val === 'string') {
@@ -43,8 +45,9 @@ function createMainWindow() {
     }
   })
 
-  // Re-bind viewManager to newly created mainWindow
+  // Re-bind viewManager & updateManager to newly created mainWindow
   viewManager.setMainWindow(mainWindow)
+  updateManager.setMainWindow(mainWindow)
 
   // Dev server or Production HTML
   const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev')
@@ -474,6 +477,12 @@ function setupIpcHandlers() {
     console.log('[DEBUG Main IPC] window:is-maximized returned:', isMax)
     return isMax
   })
+
+  // Updates IPC
+  ipcMain.handle('updates:check', () => updateManager.checkForUpdates())
+  ipcMain.handle('updates:download', () => updateManager.downloadUpdate())
+  ipcMain.handle('updates:install', () => updateManager.quitAndInstall())
+  ipcMain.handle('updates:get-version', () => app.getVersion())
 }
 
 app.whenReady().then(() => {
@@ -482,6 +491,7 @@ app.whenReady().then(() => {
 
   profileManager = new ProfileManager()
   viewManager = new ViewManager(null, profileManager)
+  updateManager = new UpdateManager(profileManager)
 
   profileManager.onDownloadsChanged = (dlList) => {
     const json = JSON.stringify(dlList)

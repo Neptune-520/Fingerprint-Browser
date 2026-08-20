@@ -1,6 +1,6 @@
 {
   "name": "fingerprint-browser",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Multi-Profile Isolated Fingerprint Browser System built with Electron 3x, Vue 3, and Tailwind CSS",
   "author": "Fingerprint Browser Team",
   "main": "main/main.js",
@@ -14,12 +14,14 @@
     "pack:win": "vite build && electron-builder --win nsis portable --publish never",
     "pack:mac": "vite build && electron-builder --mac dmg zip --publish never",
     "pack": "npm run pack:win",
-    "dist": "npm run pack:win"
+    "dist": "npm run pack:win",
+    "pack:exe": "node scripts/build-exe.js",
+    "push:github": "node scripts/push-github.js",
+    "release:organize": "node scripts/prepare-release-folder.js"
   },
   "build": {
     "appId": "com.fingerprint.browser",
     "productName": "FingerprintBrowser",
-    "publish": null,
     "directories": {
       "output": "release"
     },
@@ -64,9 +66,17 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Fingerprint Browser"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Neptune-520",
+        "repo": "Fingerprint-Browser"
+      }
+    ]
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "vue": "^3.4.0"
   },
   "devDependencies": {

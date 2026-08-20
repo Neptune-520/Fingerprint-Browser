@@ -75,6 +75,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform Info
   platform: process.platform,
 
+  // Auto Updater Manager
+  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updates:download'),
+  quitAndInstall: () => ipcRenderer.invoke('updates:install'),
+  getAppVersion: () => ipcRenderer.invoke('updates:get-version'),
+
   // Backend Signal Event Handlers
   onTabsChanged: (callback) => ipcRenderer.on('tabs-changed', (e, data) => callback(data)),
   onActiveTabChanged: (callback) => ipcRenderer.on('active-tab-changed', (e, data) => callback(data)),
@@ -84,7 +90,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDownloadsChanged: (callback) => ipcRenderer.on('downloads-changed', (e, data) => callback(data)),
   onFindResult: (callback) => ipcRenderer.on('find-result', (e, data) => callback(data)),
   onTabLoadingStatus: (callback) => ipcRenderer.on('tab-loading-status', (e, data) => callback(data)),
-  onTriggerFind: (callback) => ipcRenderer.on('trigger-find', (e) => callback())
+  onTriggerFind: (callback) => ipcRenderer.on('trigger-find', (e) => callback()),
+  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (e, data) => callback(data)),
+  onUpdateProgress: (callback) => ipcRenderer.on('update-progress', (e, data) => callback(data))
 })
 
 console.log('[DEBUG Preload.js] electronAPI successfully exposed to window!')

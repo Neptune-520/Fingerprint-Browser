@@ -82,7 +82,15 @@
     </div>
 
     <!-- Top Window TitleBar (Custom Frameless Window Controls) -->
-    <TitleBar :active-tab-title="activeTab ? (activeTab.name || activeTab.baseName) : ''" />
+    <TitleBar 
+      :active-tab-title="activeTab ? (activeTab.name || activeTab.baseName) : ''"
+      :current-view="currentView"
+      :profile-count="profiles.length"
+      :tabs-count="openTabs.length"
+      :is-collapsed="isSidebarCollapsed"
+      @switch-view="handleSwitchView"
+      @toggle-collapse="isSidebarCollapsed = !isSidebarCollapsed"
+    />
 
     <!-- Main Container (Left Sidebar + Right Area) -->
     <div class="flex-1 flex overflow-hidden">
@@ -221,6 +229,7 @@
             v-if="currentView === 'settings'"
             :settings="settings"
             @save="handleSaveSettings"
+            @check-updates="handleCheckUpdates"
             @toast="showToast"
           />
         </div>
@@ -252,6 +261,18 @@
       @launch="handleLaunchProfile" 
       @batch-launch="handleBatchLaunchProfiles" 
     />
+
+    <UpdateModal 
+      :visible="showUpdateModal"
+      :status="updateStatus"
+      :current-version="appCurrentVersion"
+      :update-info="updateInfo"
+      :download-progress="downloadProgress"
+      :error-message="updateErrorMessage"
+      @close="showUpdateModal = false"
+      @start-download="handleStartDownloadUpdate"
+      @install-now="handleInstallUpdateNow"
+    />
   </div>
 </template>
 
@@ -268,6 +289,7 @@ import BatchProfileModal from './components/BatchProfileModal.vue'
 import QuickAddModal from './components/QuickAddModal.vue'
 import DownloadsOverlay from './components/DownloadsOverlay.vue'
 import FindOverlay from './components/FindOverlay.vue'
+import UpdateModal from './components/UpdateModal.vue'
 import AppIcon from './components/AppIcon.vue'
 
 const pageMode = ref('main') // 'main', 'external', 'downloads'
@@ -292,13 +314,39 @@ const showQuickAddModal = ref(false)
 const showDownloadsOverlay = ref(false)
 const showFindOverlay = ref(false)
 
+const showUpdateModal = ref(false)
+const updateStatus = ref('checking')
+const appCurrentVersion = ref('2.0.0')
+const updateInfo = ref({ version: '', releaseNotes: '' })
+const downloadProgress = ref({ percent: 0, bytesPerSecond: 0, total: 0, transferred: 0 })
+const updateErrorMessage = ref('')
+
 const editingProfile = ref(null)
 const findResult = ref({ current: 0, total: 0 })
 const toasts = ref([])
 
 const isAnyModalOpen = computed(() => {
-  return showProfileModal.value || showBatchProfileModal.value || showQuickAddModal.value
+  return showProfileModal.value || showBatchProfileModal.value || showQuickAddModal.value || showUpdateModal.value
 })
+
+const handleCheckUpdates = async () => {
+  showUpdateModal.value = true
+  updateStatus.value = 'checking'
+  if (window.electronAPI && window.electronAPI.getAppVersion) {
+    const v = await window.electronAPI.getAppVersion()
+    if (v) appCurrentVersion.value = v
+  }
+  electronCall('checkForUpdates')
+}
+
+const handleStartDownloadUpdate = () => {
+  updateStatus.value = 'downloading'
+  electronCall('downloadUpdate')
+}
+
+const handleInstallUpdateNow = () => {
+  electronCall('quitAndInstall')
+}
 
 const showToast = (message, type = 'info') => {
   const id = Math.random().toString(36).substring(2, 9)
@@ -348,8 +396,8 @@ const electronCall = async (method, ...args) => {
 const syncLayoutBounds = () => {
   if (pageMode.value !== 'main') return
   nextTick(() => {
-    let sideW = isSidebarCollapsed.value ? 48 : 176
-    if (sidebarRef.value) {
+    let sideW = isSidebarCollapsed.value ? 0 : 176
+    if (sidebarRef.value && !isSidebarCollapsed.value) {
       const el = sidebarRef.value.$el || sidebarRef.value
       if (el && el.getBoundingClientRect) {
         const rect = el.getBoundingClientRect()
@@ -686,6 +734,23 @@ onMounted(() => {
         if (currentView.value === 'active') {
           showFindOverlay.value = !showFindOverlay.value
         }
+      })
+    }
+    if (window.electronAPI.onUpdateStatus) {
+      window.electronAPI.onUpdateStatus((data) => {
+        const payload = safeJsonParse(data, {})
+        console.log('[DEBUG App.vue] onUpdateStatus payload:', payload)
+        if (payload.status) updateStatus.value = payload.status
+        if (payload.currentVersion) appCurrentVersion.value = payload.currentVersion
+        if (payload.version) updateInfo.value.version = payload.version
+        if (payload.releaseNotes) updateInfo.value.releaseNotes = payload.releaseNotes
+        if (payload.message) updateErrorMessage.value = payload.message
+      })
+    }
+    if (window.electronAPI.onUpdateProgress) {
+      window.electronAPI.onUpdateProgress((data) => {
+        const payload = safeJsonParse(data, {})
+        downloadProgress.value = payload
       })
     }
   }

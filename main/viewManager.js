@@ -65,7 +65,7 @@ export class ViewManager {
     }
 
     const { width, height } = this.mainWindow.getContentBounds()
-    const sideW = this.sidebarWidth || 176
+    const sideW = typeof this.sidebarWidth === 'number' ? this.sidebarWidth : 176
     const topH = this.headerHeight || 32
 
     console.log(`[DEBUG ViewManager] updateActiveViewBounds -> currentView: "${this.currentView}", activeTabId: "${this.activeTabId}", modalOpen: ${!!this.modalOpen}`)

@@ -7,7 +7,7 @@
 
       <div class="flex items-center space-x-2 font-bold text-slate-800 tracking-tight">
         <span>指纹浏览器</span>
-        <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">v2.0</span>
+        <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">v2.0.1</span>
       </div>
 
       <div class="h-4 w-px bg-slate-200 mx-1"></div>

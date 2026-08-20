@@ -12,6 +12,119 @@ const APP_ROOT_DIR = path.resolve(__dirname, '..')
 const LOCAL_DATA_DIR = path.join(APP_ROOT_DIR, 'data')
 const DEFAULT_DOWNLOADS_DIR = path.join(os.homedir(), 'Downloads')
 
+/**
+ * Backup an invalid / conflicting file or folder to Desktop, creating a TXT file inside with the original path,
+ * and then delete the original conflicting item.
+ */
+function backupAndDeleteInvalidPath(targetPath) {
+  try {
+    let desktopDir
+    try {
+      desktopDir = app.getPath('desktop')
+    } catch (e) {
+      desktopDir = path.join(os.homedir(), 'Desktop')
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const baseName = path.basename(targetPath) || 'data'
+    const folderName = `FingerprintBrowser_Backup_${baseName}_${timestamp}`
+    const backupDir = path.join(desktopDir, folderName)
+
+    safeEnsureDirBasic(backupDir)
+
+    // Create TXT file with original path details
+    const txtPath = path.join(backupDir, '原数据目录.txt')
+    const txtContent = `原数据目录: ${targetPath}\n备份时间: ${new Date().toLocaleString()}\n`
+    fs.writeFileSync(txtPath, txtContent, 'utf-8')
+
+    // Copy original item to backup dir if it exists
+    if (fs.existsSync(targetPath)) {
+      const destPath = path.join(backupDir, baseName)
+      copyPathRecursiveSync(targetPath, destPath)
+
+      // Delete the original item
+      fs.rmSync(targetPath, { recursive: true, force: true })
+      console.log(`[DEBUG ProfileManager] Successfully backed up ${targetPath} to Desktop (${backupDir}) and deleted original.`)
+    }
+  } catch (err) {
+    console.error(`[DEBUG ProfileManager ERROR] Failed backing up invalid path ${targetPath}:`, err)
+  }
+}
+
+function copyPathRecursiveSync(src, dest) {
+  if (!fs.existsSync(src)) return
+  const stat = fs.statSync(src)
+  if (stat.isDirectory()) {
+    if (!fs.existsSync(dest)) {
+      fs.mkdirSync(dest, { recursive: true })
+    }
+    const children = fs.readdirSync(src)
+    for (const child of children) {
+      copyPathRecursiveSync(path.join(src, child), path.join(dest, child))
+    }
+  } else {
+    fs.copyFileSync(src, dest)
+  }
+}
+
+function safeEnsureDirBasic(dirPath) {
+  if (!dirPath) return
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true })
+  }
+}
+
+/**
+ * Ensures a directory exists safely.
+ * If targetPath or any of its ancestor paths exists as a FILE instead of a DIRECTORY,
+ * or if mkdirSync throws ENOTDIR/EEXIST:
+ * 1. Backs up the conflicting item to Desktop.
+ * 2. Writes a TXT file in the backup directory containing the original path.
+ * 3. Deletes the original conflicting item.
+ * 4. Creates the target directory cleanly.
+ */
+function safeEnsureDir(dirPath) {
+  if (!dirPath) return
+  const resolved = path.resolve(dirPath)
+
+  const checkAndFixConflicts = (target) => {
+    let current = target
+    const root = path.parse(current).root
+    while (current && current !== root) {
+      if (fs.existsSync(current)) {
+        try {
+          const stat = fs.statSync(current)
+          if (!stat.isDirectory()) {
+            console.warn(`[DEBUG ProfileManager WARNING] "${current}" exists but is a FILE, not a directory! Backing up and removing...`)
+            backupAndDeleteInvalidPath(current)
+            return true
+          }
+        } catch (e) { }
+      }
+      current = path.dirname(current)
+    }
+    return false
+  }
+
+  checkAndFixConflicts(resolved)
+
+  try {
+    fs.mkdirSync(resolved, { recursive: true })
+  } catch (err) {
+    if (err.code === 'ENOTDIR' || err.code === 'EEXIST') {
+      console.warn(`[DEBUG ProfileManager WARNING] mkdirSync failed with ${err.code} for "${resolved}". Executing backup & fix...`)
+      backupAndDeleteInvalidPath(resolved)
+      try {
+        fs.mkdirSync(resolved, { recursive: true })
+      } catch (retryErr) {
+        console.error(`[DEBUG ProfileManager ERROR] Retry mkdirSync failed for "${resolved}":`, retryErr)
+      }
+    } else {
+      throw err
+    }
+  }
+}
+
 export class ProfileManager {
   constructor() {
     this.configPath = path.join(app.getPath('userData'), 'app_config.json')
@@ -22,7 +135,10 @@ export class ProfileManager {
         try {
           const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf-8'))
           if (cfg && cfg.storageDir && fs.existsSync(cfg.storageDir)) {
-            return path.resolve(cfg.storageDir)
+            const stat = fs.statSync(cfg.storageDir)
+            if (stat.isDirectory()) {
+              return path.resolve(cfg.storageDir)
+            }
           }
         } catch (e) { }
       }
@@ -32,8 +148,8 @@ export class ProfileManager {
     const activeDir = tryReadDir(this.configPath) || tryReadDir(this.localConfigPath) || LOCAL_DATA_DIR
     this.storageDir = activeDir
 
-    fs.mkdirSync(this.storageDir, { recursive: true })
-    fs.mkdirSync(DEFAULT_DOWNLOADS_DIR, { recursive: true })
+    safeEnsureDir(this.storageDir)
+    safeEnsureDir(DEFAULT_DOWNLOADS_DIR)
 
     this.profilesFile = path.join(this.storageDir, 'profiles.json')
     this.settingsFile = path.join(this.storageDir, 'settings.json')
@@ -41,7 +157,7 @@ export class ProfileManager {
     this.downloadsFile = path.join(this.storageDir, 'downloads.json')
     this.sessionsDir = path.join(this.storageDir, 'user_sessions')
     this.lastSessionFile = path.join(this.storageDir, 'last_session.json')
-    fs.mkdirSync(this.sessionsDir, { recursive: true })
+    safeEnsureDir(this.sessionsDir)
 
     console.log('[DEBUG ProfileManager] Initialized with storageDir:', this.storageDir)
 
@@ -72,7 +188,7 @@ export class ProfileManager {
 
   writeJsonFile(filePath, data) {
     try {
-      fs.mkdirSync(path.dirname(filePath), { recursive: true })
+      safeEnsureDir(path.dirname(filePath))
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
       console.log(`[DEBUG ProfileManager] Successfully wrote ${path.basename(filePath)} to disk.`)
       return true
@@ -193,7 +309,7 @@ export class ProfileManager {
     const payload = JSON.stringify({ storageDir: newDir }, null, 2)
     try {
       if (this.configPath) {
-        fs.mkdirSync(path.dirname(this.configPath), { recursive: true })
+        safeEnsureDir(path.dirname(this.configPath))
         fs.writeFileSync(this.configPath, payload, 'utf-8')
       }
     } catch (e) {
@@ -201,7 +317,7 @@ export class ProfileManager {
     }
     try {
       if (this.localConfigPath) {
-        fs.mkdirSync(path.dirname(this.localConfigPath), { recursive: true })
+        safeEnsureDir(path.dirname(this.localConfigPath))
         fs.writeFileSync(this.localConfigPath, payload, 'utf-8')
       }
     } catch (e) {
@@ -211,14 +327,14 @@ export class ProfileManager {
 
   updateStoragePaths(newDir) {
     this.storageDir = path.resolve(newDir)
-    fs.mkdirSync(this.storageDir, { recursive: true })
+    safeEnsureDir(this.storageDir)
     this.profilesFile = path.join(this.storageDir, 'profiles.json')
     this.settingsFile = path.join(this.storageDir, 'settings.json')
     this.accountsFile = path.join(this.storageDir, 'accounts.json')
     this.downloadsFile = path.join(this.storageDir, 'downloads.json')
     this.sessionsDir = path.join(this.storageDir, 'user_sessions')
     this.lastSessionFile = path.join(this.storageDir, 'last_session.json')
-    fs.mkdirSync(this.sessionsDir, { recursive: true })
+    safeEnsureDir(this.sessionsDir)
     this.saveMasterConfig(this.storageDir)
   }
 
@@ -232,14 +348,14 @@ export class ProfileManager {
     console.log(`[DEBUG ProfileManager] Migrating data directory from "${normalizedOldDir}" to "${normalizedNewDir}"...`)
 
     try {
-      fs.mkdirSync(normalizedNewDir, { recursive: true })
+      safeEnsureDir(normalizedNewDir)
 
       const copyRecursiveSync = (src, dest) => {
         const exists = fs.existsSync(src)
         const stats = exists && fs.statSync(src)
         const isDirectory = exists && stats.isDirectory()
         if (isDirectory) {
-          if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true })
+          safeEnsureDir(dest)
           fs.readdirSync(src).forEach((childItemName) => {
             copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName))
           })
@@ -274,7 +390,7 @@ export class ProfileManager {
   saveSettings(s) {
     console.log('[DEBUG ProfileManager] saveSettings called:', JSON.stringify(s))
     if (!s.downloadDir) s.downloadDir = DEFAULT_DOWNLOADS_DIR
-    fs.mkdirSync(s.downloadDir, { recursive: true })
+    safeEnsureDir(s.downloadDir)
 
     if (s.storageDir && path.resolve(s.storageDir.trim()) !== path.resolve(this.storageDir)) {
       const migrationOk = this.migrateStorageDirectory(s.storageDir)
@@ -416,9 +532,7 @@ export class ProfileManager {
     const downloadPath = this.settings.downloadDir || DEFAULT_DOWNLOADS_DIR
     sess.on('will-download', (event, item) => {
       const baseDir = this.settings.downloadDir || DEFAULT_DOWNLOADS_DIR
-      if (!fs.existsSync(baseDir)) {
-        try { fs.mkdirSync(baseDir, { recursive: true }) } catch (e) { }
-      }
+      safeEnsureDir(baseDir)
 
       const rawFileName = item.getFilename()
       const ext = path.extname(rawFileName)
